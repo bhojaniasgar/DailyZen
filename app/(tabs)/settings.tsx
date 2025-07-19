@@ -1,0 +1,311 @@
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { useTheme } from '@/hooks/useTheme';
+import { useAuth } from '@/hooks/useAuth';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { DynamicIcon } from '@/components/icons/DynamicIcon';
+import { themes } from '@/constants/themes';
+import { ThemeName } from '@/types/global';
+
+export default function SettingsScreen() {
+  const { theme, themeName, setTheme } = useTheme();
+  const { user, signOut } = useAuth();
+  const [notifications, setNotifications] = useState({
+    habits: true,
+    tasks: true,
+    water: true,
+    quotes: true,
+  });
+
+  const handleSignOut = async () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Sign Out', 
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+            router.replace('/(auth)/signin');
+          }
+        },
+      ]
+    );
+  };
+
+  const handleThemeChange = (newTheme: ThemeName) => {
+    setTheme(newTheme);
+  };
+
+  const handleNotificationToggle = (key: string) => {
+    setNotifications(prev => ({
+      ...prev,
+      [key]: !prev[key as keyof typeof prev],
+    }));
+  };
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: theme.colors.text }]}>
+          Settings
+        </Text>
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Profile Section */}
+        <Card style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <DynamicIcon name="user" size={20} color={theme.colors.primary} />
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+              Profile
+            </Text>
+          </View>
+          
+          <View style={styles.profileInfo}>
+            <View style={[styles.avatar, { backgroundColor: theme.colors.primary + '20' }]}>
+              <Text style={[styles.avatarText, { color: theme.colors.primary }]}>
+                {user?.full_name?.charAt(0).toUpperCase() || 'U'}
+              </Text>
+            </View>
+            <View style={styles.profileDetails}>
+              <Text style={[styles.profileName, { color: theme.colors.text }]}>
+                {user?.full_name || 'User'}
+              </Text>
+              <Text style={[styles.profileEmail, { color: theme.colors.textSecondary }]}>
+                {user?.email}
+              </Text>
+            </View>
+          </View>
+        </Card>
+
+        {/* Theme Section */}
+        <Card style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <DynamicIcon name="star" size={20} color={theme.colors.primary} />
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+              Theme
+            </Text>
+          </View>
+          
+          <View style={styles.themeOptions}>
+            {Object.entries(themes).map(([key, themeData]) => (
+              <TouchableOpacity
+                key={key}
+                style={[
+                  styles.themeOption,
+                  { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+                  themeName === key && { borderColor: theme.colors.primary, borderWidth: 2 }
+                ]}
+                onPress={() => handleThemeChange(key as ThemeName)}
+              >
+                <View style={styles.themeColors}>
+                  <View style={[styles.colorDot, { backgroundColor: themeData.colors.primary }]} />
+                  <View style={[styles.colorDot, { backgroundColor: themeData.colors.secondary }]} />
+                  <View style={[styles.colorDot, { backgroundColor: themeData.colors.accent }]} />
+                </View>
+                <Text style={[styles.themeLabel, { color: theme.colors.text }]}>
+                  {themeData.displayName}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Card>
+
+        {/* Notifications Section */}
+        <Card style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <DynamicIcon name="bell" size={20} color={theme.colors.primary} />
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+              Notifications
+            </Text>
+          </View>
+          
+          <View style={styles.notificationSettings}>
+            {Object.entries(notifications).map(([key, enabled]) => (
+              <View key={key} style={styles.notificationRow}>
+                <Text style={[styles.notificationLabel, { color: theme.colors.text }]}>
+                  {key.charAt(0).toUpperCase() + key.slice(1)} Reminders
+                </Text>
+                <Switch
+                  value={enabled}
+                  onValueChange={() => handleNotificationToggle(key)}
+                  trackColor={{ false: theme.colors.border, true: theme.colors.primary + '40' }}
+                  thumbColor={enabled ? theme.colors.primary : theme.colors.textSecondary}
+                />
+              </View>
+            ))}
+          </View>
+        </Card>
+
+        {/* App Settings */}
+        <Card style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <DynamicIcon name="settings" size={20} color={theme.colors.primary} />
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+              App Settings
+            </Text>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.settingRow}
+            onPress={() => router.push('/privacy-policy')}
+          >
+            <Text style={[styles.settingLabel, { color: theme.colors.text }]}>
+              Data & Privacy
+            </Text>
+            <DynamicIcon name="chevron-right" size={16} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.settingRow}
+            onPress={() => router.push('/data-export')}
+          >
+            <Text style={[styles.settingLabel, { color: theme.colors.text }]}>
+              Export Data
+            </Text>
+            <DynamicIcon name="chevron-right" size={16} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.settingRow}
+            onPress={() => router.push('/about')}
+          >
+            <Text style={[styles.settingLabel, { color: theme.colors.text }]}>
+              About
+            </Text>
+            <DynamicIcon name="chevron-right" size={16} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        </Card>
+
+        {/* Sign Out */}
+        <Button
+          title="Sign Out"
+          onPress={handleSignOut}
+          variant="outline"
+          style={styles.signOutButton}
+        />
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+  },
+  section: {
+    marginBottom: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 8,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  profileInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  avatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  profileDetails: {
+    flex: 1,
+  },
+  profileName: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  profileEmail: {
+    fontSize: 14,
+  },
+  themeOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  themeOption: {
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    minWidth: 80,
+  },
+  themeColors: {
+    flexDirection: 'row',
+    gap: 4,
+    marginBottom: 8,
+  },
+  colorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  themeLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  notificationSettings: {
+    gap: 16,
+  },
+  notificationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  notificationLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  settingLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  signOutButton: {
+    marginTop: 20,
+    marginBottom: 40,
+  },
+});
