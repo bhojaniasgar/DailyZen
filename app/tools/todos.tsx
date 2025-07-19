@@ -151,6 +151,15 @@ export default function TodosScreen() {
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <DynamicIcon name="chevron-left" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <Text style={[styles.title, { color: theme.colors.text }]}>
+            To-Do List
+          </Text>
+          <View style={{ width: 24 }} />
+        </View>
         <View style={styles.loading}>
           <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
             Loading tasks...

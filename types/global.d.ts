@@ -4,6 +4,8 @@ export interface User {
   full_name?: string;
   avatar_url?: string;
   theme_preference: ThemeName;
+  onboarding_completed?: boolean;
+  premium_status?: boolean;
   created_at: string;
   updated_at: string;
 }

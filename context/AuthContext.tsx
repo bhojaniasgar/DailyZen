@@ -48,6 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadUserProfile = async (supabaseUser: SupabaseUser) => {
     try {
+      setLoading(true);
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -62,6 +63,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           full_name: supabaseUser.user_metadata?.full_name || '',
           avatar_url: supabaseUser.user_metadata?.avatar_url || null,
           theme_preference: 'calm-blue',
+          onboarding_completed: false,
+          premium_status: false,
         };
 
         const { data: createdProfile, error: createError } = await supabase
@@ -72,14 +75,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (createError) {
           console.error('Error creating profile:', createError);
+          setUser(null);
         } else {
           setUser(createdProfile as User);
         }
       } else if (!error && profile) {
         setUser(profile as User);
+      } else {
+        console.error('Error loading profile:', error);
+        setUser(null);
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
+      setUser(null);
     } finally {
       setLoading(false);
     }
