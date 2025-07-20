@@ -1,16 +1,25 @@
 import { create } from 'zustand';
 import { ToolConfig } from '@/types/global';
 
+interface AppSettings {
+  theme: string;
+  notificationsEnabled: boolean;
+}
+
 interface AppState {
   isOnboardingComplete: boolean;
   dashboardTools: ToolConfig[];
   searchQuery: string;
   notifications: any[];
+  settings: AppSettings;
+  todaysWaterIntake: number;
   setOnboardingComplete: (complete: boolean) => void;
   updateToolOrder: (tools: ToolConfig[]) => void;
   setSearchQuery: (query: string) => void;
   addNotification: (notification: any) => void;
   removeNotification: (id: string) => void;
+  updateSettings: (settings: Partial<AppSettings>) => void;
+  updateTodaysWaterIntake: (amount: number) => void;
 }
 
 const defaultTools: ToolConfig[] = [
@@ -121,6 +130,11 @@ export const useAppStore = create<AppState>((set) => ({
   dashboardTools: defaultTools,
   searchQuery: '',
   notifications: [],
+  settings: {
+    theme: 'light',
+    notificationsEnabled: false,
+  },
+  todaysWaterIntake: 0,
   setOnboardingComplete: (complete) => set({ isOnboardingComplete: complete }),
   updateToolOrder: (tools) => set({ dashboardTools: tools }),
   setSearchQuery: (query) => set({ searchQuery: query }),
@@ -128,4 +142,8 @@ export const useAppStore = create<AppState>((set) => ({
     set((state) => ({ notifications: [...state.notifications, notification] })),
   removeNotification: (id) => 
     set((state) => ({ notifications: state.notifications.filter(n => n.id !== id) })),
+  updateSettings: (newSettings) =>
+    set((state) => ({ settings: { ...state.settings, ...newSettings } })),
+  updateTodaysWaterIntake: (amount) =>
+    set((state) => ({ todaysWaterIntake: state.todaysWaterIntake + amount })),
 }));

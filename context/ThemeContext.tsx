@@ -3,6 +3,7 @@ import { themes, defaultTheme } from '@/constants/themes';
 import { Theme, ThemeName } from '@/types/global';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
+import { secureStorage, SECURE_STORAGE_KEYS } from '@/lib/secure-storage';
 
 interface ThemeContextType {
   theme: Theme;
@@ -18,14 +19,23 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
   useEffect(() => {
-    // Load theme from user profile when user is available
-    if (user?.theme_preference) {
-      setThemeName(user.theme_preference as ThemeName);
-    }
+    // Load theme from secure storage and user profile
+    const loadTheme = async () => {
+      const storedTheme = await secureStorage.getItem(SECURE_STORAGE_KEYS.THEME);
+      if (storedTheme) {
+        setThemeName(storedTheme as ThemeName);
+      } else if (user?.theme_preference) {
+        setThemeName(user.theme_preference as ThemeName);
+      }
+    };
+    loadTheme();
   }, [user]);
 
   const setTheme = async (newThemeName: ThemeName) => {
     setThemeName(newThemeName);
+    
+    // Save to secure storage
+    await secureStorage.setItem(SECURE_STORAGE_KEYS.THEME, newThemeName);
     
     // Save to user profile if authenticated
     if (user) {

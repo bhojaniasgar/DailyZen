@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, router } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
+import { showToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/useTheme';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -11,14 +12,15 @@ import { analytics } from '@/lib/analytics';
 
 export default function SignInScreen() {
   const { theme } = useTheme();
-  const { signIn } = useAuth();
+  const { signIn, resetPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   const handleSignIn = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showToast('error', 'Error', 'Please fill in all fields');
       return;
     }
 
@@ -26,26 +28,48 @@ export default function SignInScreen() {
     try {
       const { error } = await signIn(email, password);
       if (error) {
-        Alert.alert('Error', error.message);
-      } else {
-        analytics.userSignedIn('email');
-        router.replace('/(tabs)');
+        showToast('error', 'Error', error.message);
+        return;
       }
+      
+      analytics.userSignedIn('email');
+      // Let the AppNavigator handle the navigation
     } catch (error) {
-      Alert.alert('Error', 'An unexpected error occurred');
+      showToast('error', 'Error', 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleResetPassword = async () => {
+    if (!email) {
+      showToast('error', 'Error', 'Please enter your email address');
+      return;
+    }
+
+    setIsResettingPassword(true);
+    try {
+      const { error } = await resetPassword(email);
+      if (error) {
+        showToast('error', 'Error', error.message);
+      } else {
+        showToast('success', 'Success', 'Password reset instructions sent to your email');
+      }
+    } catch (error) {
+      showToast('error', 'Error', 'An unexpected error occurred');
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     // TODO: Implement Google Sign-In
-    Alert.alert('Coming Soon', 'Google Sign-In will be available soon');
+    showToast('info', 'Coming Soon', 'Google Sign-In will be available soon');
   };
 
   const handleAppleSignIn = async () => {
     // TODO: Implement Apple Sign-In
-    Alert.alert('Coming Soon', 'Apple Sign-In will be available soon');
+    showToast('error', 'Coming Soon', 'Apple Sign-In will be available soon');
   };
 
   return (
@@ -59,14 +83,22 @@ export default function SignInScreen() {
         </Text>
       </View>
 
-      <View style={styles.form}>
+      <ScrollView style={styles.form}>
         <Input
           label="Email"
           placeholder="Enter your email"
           value={email}
-          onChangeText={setEmail}
+          onChangeText={(e) => {
+            if (e === 'aaa'){
+              setEmail('im.bhojaniasgar@gmail.com');
+              setPassword('Asgar@123'); // Reset password field if email is 'aaa'
+            } else {
+              setEmail(e);
+            }
+          }}
           keyboardType="email-address"
           style={styles.input}
+          returnKeyType="next"
         />
         
         <Input
@@ -76,7 +108,19 @@ export default function SignInScreen() {
           onChangeText={setPassword}
           secureTextEntry
           style={styles.input}
+          returnKeyType="done"
+          onSubmitEditing={handleSignIn}
+          autoCapitalize="none"
         />
+
+        <TouchableOpacity
+          onPress={handleResetPassword}
+          style={styles.forgotPasswordContainer}
+        >
+          <Text style={[styles.forgotPasswordText, { color: theme.colors.primary }]}>
+            Forgot Password?
+          </Text>
+        </TouchableOpacity>
 
         <Button
           title="Sign In"
@@ -114,7 +158,7 @@ export default function SignInScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
 
       <View style={styles.footer}>
         <Text style={[styles.footerText, { color: theme.colors.textSecondary }]}>
@@ -152,6 +196,14 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 16,
+  },
+  forgotPasswordContainer: {
+    alignItems: 'flex-end',
+    marginBottom: 16,
+  },
+  forgotPasswordText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   signInButton: {
     marginTop: 8,

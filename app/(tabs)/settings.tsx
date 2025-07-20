@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Text } from '@/components/ui/Text';
 import { DynamicIcon } from '@/components/icons/DynamicIcon';
 import { themes } from '@/constants/themes';
 import { ThemeName } from '@/types/global';
@@ -13,12 +14,7 @@ import { ThemeName } from '@/types/global';
 export default function SettingsScreen() {
   const { theme, themeName, setTheme } = useTheme();
   const { user, signOut } = useAuth();
-  const [notifications, setNotifications] = useState({
-    habits: true,
-    tasks: true,
-    water: true,
-    quotes: true,
-  });
+  const [loading, setLoading] = useState(false);
 
   const handleSignOut = async () => {
     Alert.alert(
@@ -38,15 +34,10 @@ export default function SettingsScreen() {
     );
   };
 
-  const handleThemeChange = (newTheme: ThemeName) => {
+  const handleThemeChange = async (newTheme: ThemeName) => {
+    setLoading(true);
     setTheme(newTheme);
-  };
-
-  const handleNotificationToggle = (key: string) => {
-    setNotifications(prev => ({
-      ...prev,
-      [key]: !prev[key as keyof typeof prev],
-    }));
+    setLoading(false);
   };
 
   return (
@@ -117,31 +108,7 @@ export default function SettingsScreen() {
           </View>
         </Card>
 
-        {/* Notifications Section */}
-        <Card style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <DynamicIcon name="bell" size={20} color={theme.colors.primary} />
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-              Notifications
-            </Text>
-          </View>
-          
-          <View style={styles.notificationSettings}>
-            {Object.entries(notifications).map(([key, enabled]) => (
-              <View key={key} style={styles.notificationRow}>
-                <Text style={[styles.notificationLabel, { color: theme.colors.text }]}>
-                  {key.charAt(0).toUpperCase() + key.slice(1)} Reminders
-                </Text>
-                <Switch
-                  value={enabled}
-                  onValueChange={() => handleNotificationToggle(key)}
-                  trackColor={{ false: theme.colors.border, true: theme.colors.primary + '40' }}
-                  thumbColor={enabled ? theme.colors.primary : theme.colors.textSecondary}
-                />
-              </View>
-            ))}
-          </View>
-        </Card>
+        {/* Notifications section removed until functionality is implemented */}
 
         {/* App Settings */}
         <Card style={styles.section}>
@@ -280,18 +247,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
-  notificationSettings: {
-    gap: 16,
-  },
-  notificationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  notificationLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
+
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',

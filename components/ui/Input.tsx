@@ -1,8 +1,8 @@
 import React from 'react';
-import { TextInput, View, Text, StyleSheet } from 'react-native';
+import { TextInput, View, Text, StyleSheet, StyleProp, ViewStyle, TextInputProps } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 
-interface InputProps {
+interface InputProps extends Omit<TextInputProps, 'style'> {
   label?: string;
   placeholder?: string;
   value: string;
@@ -11,9 +11,10 @@ interface InputProps {
   multiline?: boolean;
   numberOfLines?: number;
   keyboardType?: 'default' | 'numeric' | 'email-address';
-  style?: any;
+  style?: StyleProp<ViewStyle>;
   error?: string;
 }
+
 
 export function Input({
   label,
@@ -26,6 +27,7 @@ export function Input({
   keyboardType = 'default',
   style,
   error,
+  ...props
 }: InputProps) {
   const { theme } = useTheme();
 
@@ -49,6 +51,7 @@ export function Input({
         </Text>
       )}
       <TextInput
+         {...props}
         style={inputStyle}
         placeholder={placeholder}
         placeholderTextColor={theme.colors.textSecondary}

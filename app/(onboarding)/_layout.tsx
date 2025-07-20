@@ -12,9 +12,8 @@ export default function OnboardingLayout() {
       }}
     >
       <Stack.Screen name="welcome" />
-      <Stack.Screen name="features" />
-      <Stack.Screen name="themes" />
-      <Stack.Screen name="notifications" />
+      <Stack.Screen name="theme-selection" />
+      <Stack.Screen name="permissions" />
     </Stack>
   );
 }

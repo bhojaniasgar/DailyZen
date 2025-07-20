@@ -34,7 +34,8 @@ import {
   Coffee,
   Moon,
   Sun,
-  LucideIcon
+  LucideIcon,
+  ChevronLeft
 } from 'lucide-react-native';
 
 const iconMap: Record<string, LucideIcon> = {
@@ -59,6 +60,7 @@ const iconMap: Record<string, LucideIcon> = {
   bell: Bell,
   star: Star,
   'chevron-right': ChevronRight,
+  'chevron-left': ChevronLeft,
   check: Check,
   x: X,
   edit: Edit,

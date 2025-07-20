@@ -1,60 +1,62 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MMKV } from 'react-native-mmkv';
+
+const mmkv = new MMKV();
 
 class Storage {
-  async set(key: string, value: string): Promise<void> {
+  set(key: string, value: string): void {
     try {
-      await AsyncStorage.setItem(key, value);
+      mmkv.set(key, value);
     } catch (error) {
       console.error('Storage set error:', error);
     }
   }
 
-  async get(key: string): Promise<string | null> {
+  get(key: string): string | null {
     try {
-      return await AsyncStorage.getItem(key);
+      return mmkv.getString(key) ?? null;
     } catch (error) {
       console.error('Storage get error:', error);
       return null;
     }
   }
 
-  async delete(key: string): Promise<void> {
+  delete(key: string): void {
     try {
-      await AsyncStorage.removeItem(key);
+      mmkv.delete(key);
     } catch (error) {
       console.error('Storage delete error:', error);
     }
   }
 
-  async clear(): Promise<void> {
+  clear(): void {
     try {
-      await AsyncStorage.clear();
+      mmkv.clearAll();
     } catch (error) {
       console.error('Storage clear error:', error);
     }
   }
 
-  async getAllKeys(): Promise<string[]> {
+  getAllKeys(): string[] {
     try {
-      return await AsyncStorage.getAllKeys();
+      return mmkv.getAllKeys();
     } catch (error) {
       console.error('Storage getAllKeys error:', error);
       return [];
     }
   }
 
-  // Helper methods for JSON data
-  async setObject(key: string, value: any): Promise<void> {
+  // JSON object helpers
+  setObject(key: string, value: any): void {
     try {
-      await this.set(key, JSON.stringify(value));
+      this.set(key, JSON.stringify(value));
     } catch (error) {
       console.error('Storage setObject error:', error);
     }
   }
 
-  async getObject<T>(key: string): Promise<T | null> {
+  getObject<T>(key: string): T | null {
     try {
-      const value = await this.get(key);
+      const value = this.get(key);
       return value ? JSON.parse(value) : null;
     } catch (error) {
       console.error('Storage getObject error:', error);
@@ -62,23 +64,22 @@ class Storage {
     }
   }
 
-  // Helper methods for boolean values
-  async setBoolean(key: string, value: boolean): Promise<void> {
-    await this.set(key, value.toString());
+  // Boolean helpers
+  setBoolean(key: string, value: boolean): void {
+    this.set(key, value.toString());
   }
 
-  async getBoolean(key: string): Promise<boolean> {
-    const value = await this.get(key);
-    return value === 'true';
+  getBoolean(key: string): boolean {
+    return this.get(key) === 'true';
   }
 
-  // Helper methods for number values
-  async setNumber(key: string, value: number): Promise<void> {
-    await this.set(key, value.toString());
+  // Number helpers
+  setNumber(key: string, value: number): void {
+    this.set(key, value.toString());
   }
 
-  async getNumber(key: string): Promise<number | null> {
-    const value = await this.get(key);
+  getNumber(key: string): number | null {
+    const value = this.get(key);
     return value ? parseFloat(value) : null;
   }
 }

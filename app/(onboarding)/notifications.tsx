@@ -28,32 +28,41 @@ export default function NotificationsScreen() {
       title: 'Habit Reminders',
       description: 'Get notified when it\'s time to complete your habits',
       icon: 'target',
-      enabled: true,
+      enabled: false,
     },
     {
       key: 'tasks',
       title: 'Task Deadlines',
       description: 'Never miss important task due dates',
       icon: 'check-square',
-      enabled: true,
+      enabled: false,
     },
     {
       key: 'water',
       title: 'Water Reminders',
       description: 'Stay hydrated with regular water intake reminders',
       icon: 'droplets',
-      enabled: true,
+      enabled: false,
     },
     {
       key: 'quotes',
       title: 'Daily Quotes',
       description: 'Start your day with inspiring quotes',
       icon: 'quote',
-      enabled: true,
+      enabled: false,
     },
   ]);
 
-  const handleToggle = (key: string) => {
+  const handleToggle = async (key: string) => {
+    const currentNotif = notifications.find(n => n.key === key);
+    if (!currentNotif?.enabled) {
+      const hasPermission = await requestNotificationPermission();
+      if (!hasPermission) {
+        // If permission denied, don't enable the notification
+        return;
+      }
+    }
+    
     setNotifications(prev => 
       prev.map(notif => 
         notif.key === key ? { ...notif, enabled: !notif.enabled } : notif

@@ -11,6 +11,7 @@ import { DynamicIcon } from '@/components/icons/DynamicIcon';
 import { supabase } from '@/lib/supabase';
 import { Task } from '@/types/global';
 import { analytics } from '@/lib/analytics';
+import { widgetManager } from '@/lib/widget-manager';
 
 export default function TodosScreen() {
   const { theme } = useTheme();
@@ -41,7 +42,10 @@ export default function TodosScreen() {
         return;
       }
 
-      setTasks(data || []);
+      const loadedTasks = data || [];
+      setTasks(loadedTasks);
+      // Update widget with new tasks
+      await widgetManager.updateWidgetTasks(loadedTasks);
     } catch (error) {
       Alert.alert('Error', 'An unexpected error occurred');
     } finally {
@@ -78,7 +82,7 @@ export default function TodosScreen() {
       setNewTaskDescription('');
       setNewTaskPriority('medium');
       setShowAddForm(false);
-      loadTasks();
+      await loadTasks();
     } catch (error) {
       Alert.alert('Error', 'An unexpected error occurred');
     }
@@ -102,7 +106,7 @@ export default function TodosScreen() {
       if (!task.completed) {
         analytics.taskCompleted(task.id, task.priority);
       }
-      loadTasks();
+      await loadTasks();
     } catch (error) {
       Alert.alert('Error', 'An unexpected error occurred');
     }

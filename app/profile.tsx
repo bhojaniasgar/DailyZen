@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -11,10 +12,70 @@ import { DynamicIcon } from '@/components/icons/DynamicIcon';
 
 export default function ProfileScreen() {
   const { theme } = useTheme();
-  const { user } = useAuth();
+  const { user, toggleBiometrics } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [loading, setLoading] = useState(false);
+  const [isBiometricsAvailable, setIsBiometricsAvailable] = useState(false);
+  const [isBiometricsEnabled, setIsBiometricsEnabled] = useState(false);
+
+  useEffect(() => {
+    checkBiometrics();
+  }, []);
+
+  const checkBiometrics = async () => {
+    const hasHardware = await LocalAuthentication.hasHardwareAsync();
+    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+    setIsBiometricsAvailable(hasHardware && isEnrolled);
+    // Get the current biometrics state
+    const enabled = await toggleBiometrics.getEnabled();
+    setIsBiometricsEnabled(enabled);
+  };
+
+  const handleBiometricsToggle = async (value: boolean) => {
+    if (value) {
+      // Authenticate before enabling
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Authenticate to enable biometric login',
+        disableDeviceFallback: false,
+      });
+      if (result.success) {
+        await toggleBiometrics.setEnabled(true);
+        setIsBiometricsEnabled(true);
+      }
+    } else {
+      await toggleBiometrics.setEnabled(false);
+      setIsBiometricsEnabled(false);
+    }
+  };
+
+  const handleNotificationsToggle = async (value: boolean) => {
+    if (value) {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status === 'granted') {
+        const token = await registerForPushNotificationsAsync();
+        if (token) {
+          await supabase
+            .from('profiles')
+            .update({ notifications_enabled: true })
+            .eq('id', user?.id);
+        }
+      }
+    } else {
+      await supabase
+        .from('profiles')
+        .update({ notifications_enabled: false })
+        .eq('id', user?.id);
+    }
+  };
+
+  const handleThemeChange = async (themeName: string) => {
+    await supabase
+      .from('profiles')
+      .update({ theme_preference: themeName })
+      .eq('id', user?.id);
+    setTheme(themeName);
+  };
 
   const handleSave = async () => {
     setLoading(true);
@@ -95,6 +156,7 @@ export default function ProfileScreen() {
               </Text>
               <Text style={[styles.value, { color: theme.colors.text }]}>
                 {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}
+                {/* {user?.created_at ? new Date(user.created_at) : 'Unknown'} */}
               </Text>
             </View>
           </View>
@@ -191,6 +253,21 @@ export default function ProfileScreen() {
             </Text>
             <DynamicIcon name="chevron-right" size={16} color={theme.colors.textSecondary} />
           </TouchableOpacity>
+
+          {isBiometricsAvailable && (
+            <View style={styles.preferenceRow}>
+              <DynamicIcon name="fingerprint" size={20} color={theme.colors.primary} />
+              <Text style={[styles.preferenceLabel, { color: theme.colors.text }]}>
+                Biometric Login
+              </Text>
+              <Switch
+                value={isBiometricsEnabled}
+                onValueChange={handleBiometricsToggle}
+                trackColor={{ false: theme.colors.textSecondary + '40', true: theme.colors.primary + '40' }}
+                thumbColor={isBiometricsEnabled ? theme.colors.primary : theme.colors.textSecondary}
+              />
+            </View>
+          )}
         </Card>
       </ScrollView>
     </SafeAreaView>

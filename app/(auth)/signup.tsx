@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, router } from 'expo-router';
+import { showToast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { Button } from '@/components/ui/Button';
@@ -20,17 +21,17 @@ export default function SignUpScreen() {
 
   const handleSignUp = async () => {
     if (!email || !password || !confirmPassword || !fullName) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showToast('error', 'Error', 'Please fill in all fields');
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      showToast('error', 'Error', 'Passwords do not match');
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      showToast('error', 'Error', 'Password must be at least 6 characters');
       return;
     }
 
@@ -38,17 +39,14 @@ export default function SignUpScreen() {
     try {
       const { error } = await signUp(email, password, fullName);
       if (error) {
-        Alert.alert('Error', error.message);
+        showToast('error', 'Error', error.message);
       } else {
         analytics.userSignedUp('email');
-        Alert.alert(
-          'Account Created',
-          'Your account has been created successfully!',
-          [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
-        );
+        showToast('success', 'Success', 'Your account has been created successfully!');
+        router.replace('/(tabs)');
       }
     } catch (error) {
-      Alert.alert('Error', 'An unexpected error occurred');
+      showToast('error', 'Error', 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
@@ -72,6 +70,8 @@ export default function SignUpScreen() {
           value={fullName}
           onChangeText={setFullName}
           style={styles.input}
+          returnKeyType="next"
+          autoCapitalize="words"
         />
 
         <Input
@@ -81,6 +81,8 @@ export default function SignUpScreen() {
           onChangeText={setEmail}
           keyboardType="email-address"
           style={styles.input}
+          returnKeyType="next"
+          autoCapitalize="none"
         />
         
         <Input
@@ -90,6 +92,8 @@ export default function SignUpScreen() {
           onChangeText={setPassword}
           secureTextEntry
           style={styles.input}
+          returnKeyType="next"
+          autoCapitalize="none"
         />
 
         <Input
@@ -99,6 +103,8 @@ export default function SignUpScreen() {
           onChangeText={setConfirmPassword}
           secureTextEntry
           style={styles.input}
+          returnKeyType="done"
+          onSubmitEditing={handleSignUp}
         />
 
         <Button
