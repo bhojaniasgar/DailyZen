@@ -3,21 +3,25 @@ import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { User } from '@/types/global';
 import { secureStorage, SECURE_STORAGE_KEYS } from '@/lib/secure-storage';
+import * as LocalAuthentication from 'expo-local-authentication';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  onboardingCompleted: boolean;
+  isOnboardingComplete: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any; needsVerification?: boolean }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: any }>;
   updatePassword: (newPassword: string) => Promise<{ error: any }>;
+  verifyOTP: (email: string, token: string, type: 'signup' | 'recovery') => Promise<{ error: any }>;
+  resendOTP: (email: string, type: 'signup' | 'recovery') => Promise<{ error: any }>;
   completeOnboarding: () => Promise<void>;
   toggleBiometrics: {
     setEnabled: (enabled: boolean) => Promise<void>;
     getEnabled: () => Promise<boolean>;
+    authenticate: () => Promise<boolean>;
   };
 }
 
@@ -27,47 +31,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
-  const [biometricsEnabled, setBiometricsEnabled] = useState(false);
+  const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
 
   useEffect(() => {
-    // Get initial session from secure storage
-    const initializeSession = async () => {
+    // Get initial session and check onboarding status
+    const initializeAuth = async () => {
       try {
-        // First try to get the current session from Supabase
-        const { data: { session } } = await supabase.auth.getSession();
+        // Check onboarding status first
+        const onboardingComplete = await secureStorage.getItem('onboarding_complete');
+        setIsOnboardingComplete(onboardingComplete === 'true');
+
+        const { data: { session }, error } = await supabase.auth.getSession();
         
-        if (session?.user) {
-          setSession(session);
-          await secureStorage.setItem(SECURE_STORAGE_KEYS.SESSION, JSON.stringify(session));
-          await loadUserProfile(session.user);
+        if (error) {
+          console.error('Session error:', error);
+          setLoading(false);
           return;
         }
 
-        // If no current session, try to get from storage
-        const storedSession = await secureStorage.getItem(SECURE_STORAGE_KEYS.SESSION);
-        if (storedSession) {
-          const parsedSession = JSON.parse(storedSession);
-          // Verify the session is still valid
-          const { data: { user } } = await supabase.auth.getUser(parsedSession?.access_token);
-          if (user) {
-            setSession(parsedSession);
-            await loadUserProfile(user);
-            return;
-          }
+        if (session?.user) {
+          setSession(session);
+          await loadUserProfile(session.user);
         }
-
-        // No valid session found
-        setUser(null);
       } catch (error) {
-        console.error('Session initialization error:', error);
-        setUser(null);
+        console.error('Auth initialization error:', error);
       } finally {
         setLoading(false);
       }
     };
-    
-    initializeSession();
+
+    initializeAuth();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -80,6 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await secureStorage.removeItem(SECURE_STORAGE_KEYS.SESSION);
         } else if (session?.user) {
           setSession(session);
+          await secureStorage.setItem(SECURE_STORAGE_KEYS.SESSION, JSON.stringify(session));
           await loadUserProfile(session.user);
         }
         
@@ -92,9 +86,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadUserProfile = async (supabaseUser: SupabaseUser) => {
     try {
-      setLoading(true);
-      console.log('Loading user profile for:', supabaseUser.email);
-      
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -127,6 +118,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } else if (!error && profile) {
         setUser(profile as User);
+        // Update onboarding status from profile
+        if (profile.onboarding_completed) {
+          setIsOnboardingComplete(true);
+          await secureStorage.setItem('onboarding_complete', 'true');
+        }
       } else {
         console.error('Error loading profile:', error);
         setUser(null);
@@ -134,35 +130,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error loading user profile:', error);
       setUser(null);
-    } finally {
-      setLoading(false);
     }
   };
 
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
-      console.log('Starting sign in process for:', email);
-
-      // Try password sign in first
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
-        console.error('Sign in error:', error);
         return { error };
       }
 
-      console.log('Sign in successful, storing session');
-      
-      // Store session for future use
       if (data.session) {
         await secureStorage.setItem(SECURE_STORAGE_KEYS.SESSION, JSON.stringify(data.session));
         setSession(data.session);
         
-        // Load user profile immediately
         if (data.user) {
           await loadUserProfile(data.user);
         }
@@ -170,8 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return { error: null };
     } catch (error) {
-      console.error('Unexpected sign in error:', error);
-      setUser(null);
+      console.error('Sign in error:', error);
       return { error: new Error('An unexpected error occurred during sign in') };
     } finally {
       setLoading(false);
@@ -179,26 +165,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, fullName?: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName || '',
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName || '',
+          },
         },
-      },
-    });
-    return { error };
+      });
+      
+      if (error) {
+        return { error };
+      }
+
+      // Check if email confirmation is required
+      if (data.user && !data.session) {
+        return { error: null, needsVerification: true };
+      }
+
+      return { error: null, needsVerification: false };
+    } catch (error) {
+      console.error('Sign up error:', error);
+      return { error: new Error('An unexpected error occurred during sign up') };
+    }
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    await secureStorage.removeItem(SECURE_STORAGE_KEYS.SESSION);
+    await secureStorage.removeItem('onboarding_complete');
+    setIsOnboardingComplete(false);
   };
 
   const resetPassword = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'dailyzen://reset-password',
-    });
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
     return { error };
   };
 
@@ -209,30 +211,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error };
   };
 
+  const verifyOTP = async (email: string, token: string, type: 'signup' | 'recovery') => {
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type,
+    });
+    return { error };
+  };
+
+  const resendOTP = async (email: string, type: 'signup' | 'recovery') => {
+    if (type === 'signup') {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+      });
+      return { error };
+    } else {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      return { error };
+    }
+  };
+
+  const completeOnboarding = async () => {
+    setIsOnboardingComplete(true);
+    await secureStorage.setItem('onboarding_complete', 'true');
+    
+    // Update user profile
+    if (user) {
+      await supabase
+        .from('profiles')
+        .update({ onboarding_completed: true })
+        .eq('id', user.id);
+    }
+  };
+
   const toggleBiometrics = {
     setEnabled: async (enabled: boolean) => {
       await secureStorage.setItem(SECURE_STORAGE_KEYS.BIOMETRICS_ENABLED, JSON.stringify(enabled));
-      if (!enabled) {
-        await secureStorage.removeItem(SECURE_STORAGE_KEYS.SESSION);
-      }
     },
     getEnabled: async () => {
       const enabled = await secureStorage.getItem(SECURE_STORAGE_KEYS.BIOMETRICS_ENABLED);
       return enabled ? JSON.parse(enabled) : false;
     },
-  };
+    authenticate: async () => {
+      try {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        
+        if (!hasHardware || !isEnrolled) {
+          return false;
+        }
 
-  const completeOnboarding = async () => {
-    if (!user) return;
-    
-    const { error } = await supabase
-      .from('profiles')
-      .update({ onboarding_completed: true })
-      .eq('id', user.id);
-      
-    if (!error) {
-      setUser(prev => prev ? { ...prev, onboarding_completed: true } : null);
-    }
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: 'Authenticate to sign in',
+          fallbackLabel: 'Use password',
+        });
+
+        return result.success;
+      } catch (error) {
+        console.error('Biometric authentication error:', error);
+        return false;
+      }
+    },
   };
 
   return (
@@ -240,12 +281,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       session,
       loading,
-      onboardingCompleted: user?.onboarding_completed ?? false,
+      isOnboardingComplete,
       signIn,
       signUp,
       signOut,
       resetPassword,
       updatePassword,
+      verifyOTP,
+      resendOTP,
       completeOnboarding,
       toggleBiometrics,
     }}>

@@ -3,13 +3,12 @@ import { View, Text, StyleSheet, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { DynamicIcon } from '@/components/icons/DynamicIcon';
-import { requestNotificationPermission, scheduleHabitReminder, scheduleWaterReminder, scheduleDailyQuote } from '@/lib/notifications';
-import { useAppStore } from '@/store/appStore';
+import { requestNotificationPermission } from '@/lib/notifications';
 import { analytics } from '@/lib/analytics';
-import { storage } from '@/lib/storage';
 
 interface NotificationSetting {
   key: string;
@@ -21,7 +20,7 @@ interface NotificationSetting {
 
 export default function NotificationsScreen() {
   const { theme } = useTheme();
-  const { setOnboardingComplete } = useAppStore();
+  const { completeOnboarding } = useAuth();
   const [notifications, setNotifications] = useState<NotificationSetting[]>([
     {
       key: 'habits',
@@ -71,11 +70,9 @@ export default function NotificationsScreen() {
   };
 
   const handleFinish = async () => {
-    // Mark onboarding as complete
-    setOnboardingComplete(true);
-    await storage.setBoolean('onboardingComplete', true);
-    analytics.onboardingCompleted(0); // TODO: Calculate actual time spent
-    router.replace('/(auth)/signin');
+    await completeOnboarding();
+    analytics.onboardingCompleted(0);
+    // Navigation will be handled by auth state change
   };
 
   return (

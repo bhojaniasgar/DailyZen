@@ -27,7 +27,6 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             await signOut();
-            router.replace('/(auth)/signin');
           }
         },
       ]
@@ -58,7 +57,10 @@ export default function SettingsScreen() {
             </Text>
           </View>
           
-          <View style={styles.profileInfo}>
+          <TouchableOpacity 
+            style={styles.profileInfo}
+            onPress={() => router.push('/profile')}
+          >
             <View style={[styles.avatar, { backgroundColor: theme.colors.primary + '20' }]}>
               <Text style={[styles.avatarText, { color: theme.colors.primary }]}>
                 {user?.full_name?.charAt(0).toUpperCase() || 'U'}
@@ -72,7 +74,8 @@ export default function SettingsScreen() {
                 {user?.email}
               </Text>
             </View>
-          </View>
+            <DynamicIcon name="chevron-right" size={16} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
         </Card>
 
         {/* Theme Section */}
@@ -108,7 +111,25 @@ export default function SettingsScreen() {
           </View>
         </Card>
 
-        {/* Notifications section removed until functionality is implemented */}
+        {/* Security Section */}
+        <Card style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <DynamicIcon name="lock" size={20} color={theme.colors.primary} />
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+              Security
+            </Text>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.settingRow}
+            onPress={() => router.push('/change-password')}
+          >
+            <Text style={[styles.settingLabel, { color: theme.colors.text }]}>
+              Change Password
+            </Text>
+            <DynamicIcon name="chevron-right" size={16} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        </Card>
 
         {/* App Settings */}
         <Card style={styles.section}>
@@ -118,6 +139,16 @@ export default function SettingsScreen() {
               App Settings
             </Text>
           </View>
+          
+          <TouchableOpacity 
+            style={styles.settingRow}
+            onPress={() => router.push('/notifications')}
+          >
+            <Text style={[styles.settingLabel, { color: theme.colors.text }]}>
+              Notifications
+            </Text>
+            <DynamicIcon name="chevron-right" size={16} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
           
           <TouchableOpacity 
             style={styles.settingRow}
@@ -231,6 +262,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     minWidth: 80,
+    flex: 1,
   },
   themeColors: {
     flexDirection: 'row',
@@ -247,7 +279,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
-
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',

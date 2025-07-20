@@ -37,13 +37,16 @@ export default function SignUpScreen() {
 
     setLoading(true);
     try {
-      const { error } = await signUp(email, password, fullName);
+      const { error, needsVerification } = await signUp(email, password, fullName);
       if (error) {
         showToast('error', 'Error', error.message);
+      } else if (needsVerification) {
+        showToast('success', 'Success', 'Please check your email for verification code');
+        router.push({ pathname: '/verify-otp', params: { email, type: 'signup' } });
       } else {
         analytics.userSignedUp('email');
         showToast('success', 'Success', 'Your account has been created successfully!');
-        router.replace('/(tabs)');
+        // User will be automatically navigated by the auth state change
       }
     } catch (error) {
       showToast('error', 'Error', 'An unexpected error occurred');
@@ -105,6 +108,7 @@ export default function SignUpScreen() {
           style={styles.input}
           returnKeyType="done"
           onSubmitEditing={handleSignUp}
+          autoCapitalize="none"
         />
 
         <Button

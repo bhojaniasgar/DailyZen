@@ -10,7 +10,7 @@ export interface User {
   updated_at: string;
 }
 
-export type ThemeName = 'calm-blue' | 'solar-dark' | 'nature-green' | 'sunset-orange' | 'minimal-white';
+export type ThemeName = 'calm-blue' | 'solar-dark' | 'nature-green' | 'sunset-orange' | 'minimal-white' | 'purple-dream' | 'rose-gold' | 'ocean-blue';
 
 export interface Theme {
   name: ThemeName;
@@ -43,6 +43,9 @@ export interface Habit {
   frequency: 'daily' | 'weekly' | 'custom';
   target_count: number;
   streak_count: number;
+  best_streak?: number;
+  reminder_time?: string;
+  reminder_enabled: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -53,6 +56,7 @@ export interface HabitEntry {
   date: string;
   completed: boolean;
   count: number;
+  notes?: string;
   created_at: string;
 }
 
@@ -65,6 +69,7 @@ export interface Task {
   category: string;
   due_date?: string;
   completed: boolean;
+  completed_at?: string;
   recurring: boolean;
   recurring_pattern?: string;
   created_at: string;
@@ -92,11 +97,13 @@ export interface WaterEntry {
 export interface FuelEntry {
   id: string;
   user_id: string;
+  vehicle_name?: string;
   odometer: number;
   fuel_amount: number;
   fuel_cost: number;
   date: string;
-  vehicle_name?: string;
+  location?: string;
+  notes?: string;
   created_at: string;
 }
 
@@ -105,6 +112,7 @@ export interface Quote {
   text: string;
   author: string;
   category: string;
+  tags?: string[];
   is_favorited?: boolean;
 }
 
@@ -145,4 +153,13 @@ export interface ToolConfig {
   isPremium: boolean;
   isEnabled: boolean;
   order: number;
+}
+
+export interface SearchResult {
+  id: string;
+  title: string;
+  description: string;
+  type: 'habit' | 'task' | 'expense' | 'quote' | 'tool';
+  route?: string;
+  data?: any;
 }

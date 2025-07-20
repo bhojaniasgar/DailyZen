@@ -1,22 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, router } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { showToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/useTheme';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { DynamicIcon } from '@/components/icons/DynamicIcon';
 import { analytics } from '@/lib/analytics';
+import { secureStorage } from '@/lib/secure-storage';
 
 export default function SignInScreen() {
   const { theme } = useTheme();
-  const { signIn, resetPassword } = useAuth();
+  const { signIn, resetPassword, toggleBiometrics } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [biometricsAvailable, setBiometricsAvailable] = useState(false);
+  const [biometricsEnabled, setBiometricsEnabled] = useState(false);
+
+  useEffect(() => {
+    checkBiometrics();
+  }, []);
+
+  const checkBiometrics = async () => {
+    const hasHardware = await LocalAuthentication.hasHardwareAsync();
+    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+    const enabled = await toggleBiometrics.getEnabled();
+    
+    setBiometricsAvailable(hasHardware && isEnrolled);
+    setBiometricsEnabled(enabled);
+  };
+
+  const handleBiometricSignIn = async () => {
+    const success = await toggleBiometrics.authenticate();
+    if (success) {
+      // Get stored credentials and sign in
+      const storedEmail = await secureStorage.getItem('stored_email');
+      const storedPassword = await secureStorage.getItem('stored_password');
+      
+      if (storedEmail && storedPassword) {
+        const { error } = await signIn(storedEmail, storedPassword);
+        if (error) {
+          showToast('error', 'Error', 'Biometric sign in failed');
+        }
+      } else {
+        showToast('error', 'Error', 'No stored credentials found');
+      }
+    }
+  };
 
   const handleSignIn = async () => {
     if (!email || !password) {
@@ -32,8 +67,13 @@ export default function SignInScreen() {
         return;
       }
       
+      // Store credentials for biometric login if enabled
+      if (biometricsEnabled) {
+        await secureStorage.setItem('stored_email', email);
+        await secureStorage.setItem('stored_password', password);
+      }
+      
       analytics.userSignedIn('email');
-      // Let the AppNavigator handle the navigation
     } catch (error) {
       showToast('error', 'Error', 'An unexpected error occurred');
     } finally {
@@ -54,6 +94,7 @@ export default function SignInScreen() {
         showToast('error', 'Error', error.message);
       } else {
         showToast('success', 'Success', 'Password reset instructions sent to your email');
+        router.push({ pathname: '/verify-otp', params: { email, type: 'recovery' } });
       }
     } catch (error) {
       showToast('error', 'Error', 'An unexpected error occurred');
@@ -69,7 +110,7 @@ export default function SignInScreen() {
 
   const handleAppleSignIn = async () => {
     // TODO: Implement Apple Sign-In
-    showToast('error', 'Coming Soon', 'Apple Sign-In will be available soon');
+    showToast('info', 'Coming Soon', 'Apple Sign-In will be available soon');
   };
 
   return (
@@ -91,7 +132,7 @@ export default function SignInScreen() {
           onChangeText={(e) => {
             if (e === 'aaa'){
               setEmail('im.bhojaniasgar@gmail.com');
-              setPassword('Asgar@123'); // Reset password field if email is 'aaa'
+              setPassword('Asgar@123');
             } else {
               setEmail(e);
             }
@@ -99,6 +140,7 @@ export default function SignInScreen() {
           keyboardType="email-address"
           style={styles.input}
           returnKeyType="next"
+          autoCapitalize="none"
         />
         
         <Input
@@ -128,6 +170,15 @@ export default function SignInScreen() {
           loading={loading}
           style={styles.signInButton}
         />
+
+        {biometricsAvailable && biometricsEnabled && (
+          <Button
+            title="Sign In with Biometrics"
+            onPress={handleBiometricSignIn}
+            variant="outline"
+            style={styles.biometricButton}
+          />
+        )}
 
         <View style={styles.divider}>
           <View style={[styles.dividerLine, { backgroundColor: theme.colors.border }]} />
@@ -207,6 +258,9 @@ const styles = StyleSheet.create({
   },
   signInButton: {
     marginTop: 8,
+    marginBottom: 32,
+  },
+  biometricButton: {
     marginBottom: 32,
   },
   divider: {

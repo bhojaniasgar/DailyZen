@@ -3,22 +3,19 @@ import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
+import { useAuth } from '@/hooks/useAuth';
 import { Card } from '@/components/ui/Card';
 import { DynamicIcon } from '@/components/icons/DynamicIcon';
-
-interface SearchResult {
-  id: string;
-  title: string;
-  description: string;
-  type: 'habit' | 'task' | 'quote' | 'tool';
-  route?: string;
-}
+import { supabase } from '@/lib/supabase';
+import { SearchResult } from '@/types/global';
 
 export default function SearchScreen() {
   const { theme } = useTheme();
+  const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (query.length > 2) {
@@ -28,39 +25,100 @@ export default function SearchScreen() {
     }
   }, [query]);
 
-  const performSearch = (searchQuery: string) => {
-    // TODO: Implement actual search across all data
-    const mockResults: SearchResult[] = [
-      {
-        id: '1',
-        title: 'Morning Exercise',
-        description: 'Daily habit - 5 day streak',
-        type: 'habit',
-        route: '/tools/habits',
-      },
-      {
-        id: '2',
-        title: 'Finish project proposal',
-        description: 'High priority task - Due tomorrow',
-        type: 'task',
-        route: '/tools/todos',
-      },
-      {
-        id: '3',
-        title: 'The only way to do great work...',
-        description: 'Steve Jobs - Motivation',
-        type: 'quote',
-        route: '/tools/quotes',
-      },
-    ].filter(item => 
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+  const performSearch = async (searchQuery: string) => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      const searchResults: SearchResult[] = [];
 
-    setResults(mockResults);
+      // Search habits
+      const { data: habits } = await supabase
+        .from('habits')
+        .select('*')
+        .eq('user_id', user.id)
+        .or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
+
+      habits?.forEach(habit => {
+        searchResults.push({
+          id: habit.id,
+          title: habit.title,
+          description: habit.description || 'Habit',
+          type: 'habit',
+          route: '/tools/habits',
+          data: habit,
+        });
+      });
+
+      // Search tasks
+      const { data: tasks } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
+
+      tasks?.forEach(task => {
+        searchResults.push({
+          id: task.id,
+          title: task.title,
+          description: task.description || `${task.priority} priority task`,
+          type: 'task',
+          route: '/tools/todos',
+          data: task,
+        });
+      });
+
+      // Search expenses
+      const { data: expenses } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', user.id)
+        .or(`category.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
+
+      expenses?.forEach(expense => {
+        searchResults.push({
+          id: expense.id,
+          title: `$${expense.amount} - ${expense.category}`,
+          description: expense.description || expense.category,
+          type: 'expense',
+          route: '/tools/expenses',
+          data: expense,
+        });
+      });
+
+      // Search quotes
+      const { data: quotes } = await supabase
+        .from('quotes')
+        .select('*')
+        .or(`text.ilike.%${searchQuery}%,author.ilike.%${searchQuery}%,category.ilike.%${searchQuery}%`)
+        .limit(10);
+
+      quotes?.forEach(quote => {
+        searchResults.push({
+          id: quote.id,
+          title: quote.text.substring(0, 50) + '...',
+          description: `by ${quote.author}`,
+          type: 'quote',
+          route: '/tools/quotes',
+          data: quote,
+        });
+      });
+
+      setResults(searchResults);
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleResultPress = (result: SearchResult) => {
+    // Add to recent searches
+    setRecentSearches(prev => {
+      const updated = [query, ...prev.filter(s => s !== query)].slice(0, 5);
+      return updated;
+    });
+
     if (result.route) {
       router.push(result.route as any);
     }
@@ -70,16 +128,28 @@ export default function SearchScreen() {
     switch (type) {
       case 'habit': return 'target';
       case 'task': return 'check-square';
+      case 'expense': return 'dollar-sign';
       case 'quote': return 'quote';
       case 'tool': return 'star';
       default: return 'search';
     }
   };
 
+  const getResultColor = (type: string) => {
+    switch (type) {
+      case 'habit': return theme.colors.primary;
+      case 'task': return theme.colors.success;
+      case 'expense': return theme.colors.warning;
+      case 'quote': return theme.colors.accent;
+      case 'tool': return theme.colors.secondary;
+      default: return theme.colors.textSecondary;
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
-        <View style={styles.searchContainer}>
+        <View style={[styles.searchContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
           <DynamicIcon name="search" size={20} color={theme.colors.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: theme.colors.text }]}
@@ -124,16 +194,24 @@ export default function SearchScreen() {
           </View>
         )}
 
+        {loading && (
+          <View style={styles.loadingContainer}>
+            <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+              Searching...
+            </Text>
+          </View>
+        )}
+
         {results.length > 0 && (
           <View style={styles.results}>
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
               Results ({results.length})
             </Text>
             {results.map((result) => (
-              <Card key={result.id} onPress={() => handleResultPress(result)} style={styles.resultCard}>
+              <Card key={`${result.type}-${result.id}`} onPress={() => handleResultPress(result)} style={styles.resultCard}>
                 <View style={styles.resultContent}>
-                  <View style={[styles.resultIcon, { backgroundColor: theme.colors.primary + '20' }]}>
-                    <DynamicIcon name={getResultIcon(result.type)} size={20} color={theme.colors.primary} />
+                  <View style={[styles.resultIcon, { backgroundColor: getResultColor(result.type) + '20' }]}>
+                    <DynamicIcon name={getResultIcon(result.type)} size={20} color={getResultColor(result.type)} />
                   </View>
                   <View style={styles.resultInfo}>
                     <Text style={[styles.resultTitle, { color: theme.colors.text }]}>
@@ -141,6 +219,9 @@ export default function SearchScreen() {
                     </Text>
                     <Text style={[styles.resultDescription, { color: theme.colors.textSecondary }]}>
                       {result.description}
+                    </Text>
+                    <Text style={[styles.resultType, { color: getResultColor(result.type) }]}>
+                      {result.type.charAt(0).toUpperCase() + result.type.slice(1)}
                     </Text>
                   </View>
                   <DynamicIcon name="chevron-right" size={16} color={theme.colors.textSecondary} />
@@ -150,11 +231,14 @@ export default function SearchScreen() {
           </View>
         )}
 
-        {query.length > 2 && results.length === 0 && (
+        {query.length > 2 && results.length === 0 && !loading && (
           <View style={styles.noResults}>
             <DynamicIcon name="search" size={48} color={theme.colors.textSecondary} />
             <Text style={[styles.noResultsText, { color: theme.colors.textSecondary }]}>
               No results found for "{query}"
+            </Text>
+            <Text style={[styles.noResultsSubtext, { color: theme.colors.textSecondary }]}>
+              Try searching for habits, tasks, expenses, or quotes
             </Text>
           </View>
         )}
@@ -181,7 +265,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderWidth: 1,
     gap: 8,
   },
   searchInput: {
@@ -218,6 +302,13 @@ const styles = StyleSheet.create({
   recentSearchText: {
     fontSize: 16,
   },
+  loadingContainer: {
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+  },
   results: {
     marginTop: 20,
   },
@@ -246,6 +337,12 @@ const styles = StyleSheet.create({
   },
   resultDescription: {
     fontSize: 14,
+    marginBottom: 4,
+  },
+  resultType: {
+    fontSize: 12,
+    fontWeight: '500',
+    textTransform: 'uppercase',
   },
   noResults: {
     alignItems: 'center',
@@ -253,7 +350,12 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   noResultsText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  noResultsSubtext: {
+    fontSize: 14,
     textAlign: 'center',
   },
 });

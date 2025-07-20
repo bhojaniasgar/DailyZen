@@ -53,7 +53,7 @@ export function QuickStats() {
     try {
       const today = new Date().toISOString().split('T')[0];
       
-      // Load habits count
+      // Load habits count and best streak
       const { data: habitsData } = await supabase
         .from('habits')
         .select('id, streak_count')
@@ -90,6 +90,17 @@ export function QuickStats() {
       setLoading(false);
     }
   };
+
+  // Refresh stats when component becomes visible
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (user) {
+        loadStats();
+      }
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [user]);
 
   const statsData = [
     { label: 'Habits', value: stats.habits, icon: 'target', color: theme.colors.primary },
